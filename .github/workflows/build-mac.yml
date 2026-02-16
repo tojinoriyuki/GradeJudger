@@ -1,0 +1,36 @@
+name: build-mac
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install openpyxl msoffcrypto-tool pyinstaller
+
+      - name: Build app (onedir .app)
+        run: |
+          pyinstaller --noconfirm --clean --windowed --name GradeJudger grade_judger4.py
+          ls -la dist
+
+      - name: Zip app safely
+        run: |
+          cd dist
+          ditto -c -k --sequesterRsrc --keepParent GradeJudger.app GradeJudger.app.zip
+          ls -la
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GradeJudger-mac
+          path: dist/GradeJudger.app.zip
