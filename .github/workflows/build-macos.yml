@@ -1,0 +1,65 @@
+name: build-macos
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Apple Silicon (arm64)
+          - runner: macos-14
+            arch: arm64
+          # Intel (x86_64)
+          - runner: macos-15-intel
+            arch: x86_64
+
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          # PyInstallerの安定性優先で 3.12 を推奨（3.14は対応が遅れることがある）
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -V
+          python -m pip install --upgrade pip wheel
+          python -m pip install -r requirements.txt
+
+      - name: Build (PyInstaller)
+        env:
+          PYTHONUTF8: "1"
+        run: |
+          rm -rf build dist
+          pyinstaller --noconfirm --clean \
+            --windowed \
+            --onedir \
+            --name GradeJudgerWeb \
+            grade_judger_web.py
+
+      - name: Package artifacts (zip dist/)
+        run: |
+          cd dist
+          # dist 配下を丸ごと固める（.app と補助フォルダが両方出るケースでも安全）
+          ditto -c -k --sequesterRsrc --keepParent GradeJudgerWeb.app "GradeJudgerWeb-macos-${{ matrix.arch }}.zip" || true
+          # .app だけでなく他にも出力がある場合に備えて dist 全体も
+          cd ..
+          zip -r "GradeJudgerWeb-macos-${{ matrix.arch }}-dist.zip" dist
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: GradeJudgerWeb-macos-${{ matrix.arch }}
+          path: |
+            GradeJudgerWeb-macos-${{ matrix.arch }}.zip
+            GradeJudgerWeb-macos-${{ matrix.arch }}-dist.zip
