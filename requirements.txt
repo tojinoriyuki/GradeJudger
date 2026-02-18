@@ -1,0 +1,4 @@
+flask
+openpyxl
+msoffcrypto-tool
+pyinstaller
